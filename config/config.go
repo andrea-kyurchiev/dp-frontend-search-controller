@@ -64,7 +64,7 @@ func get() (*Config, error) {
 		DefaultOffset:                  0,
 		DefaultPage:                    1,
 		DefaultSort:                    "relevance",
-		EnableCensusTopicFilterOption:  false,
+		EnableCensusTopicFilterOption:  true,
 		GracefulShutdownTimeout:        5 * time.Second,
 		HealthCheckCriticalTimeout:     90 * time.Second,
 		HealthCheckInterval:            30 * time.Second,

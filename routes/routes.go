@@ -29,5 +29,6 @@ type Clients struct {
 func Setup(ctx context.Context, r *mux.Router, cfg *config.Config, c Clients, cacheList cache.CacheList) {
 	log.Info(ctx, "adding routes")
 	r.StrictSlash(true).Path("/health").HandlerFunc(c.HealthCheckHandler)
-	r.StrictSlash(true).Path("/search").Methods("GET").HandlerFunc(handlers.Read(cfg, c.Zebedee, c.Renderer, c.Search, cacheList))
+	//r.StrictSlash(true).Path("/search").Methods("GET").HandlerFunc(handlers.Read(cfg, c.Zebedee, c.Renderer, c.Search, cacheList))
+	r.StrictSlash(true).Path("/search").Methods("GET").HandlerFunc(handlers.MockRead(cfg, c.Zebedee, c.Renderer, c.Search, cacheList))
 }

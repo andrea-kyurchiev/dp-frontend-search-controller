@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
@@ -126,6 +128,149 @@ func read(w http.ResponseWriter, req *http.Request, cfg *config.Config, zc Zebed
 	basePage := rend.NewBasePageModel()
 	m := mapper.CreateSearchPage(cfg, req, basePage, validatedQueryParams, categories, topicCategories, searchResp, departmentResp, lang, homepageResponse, "")
 	rend.BuildPage(w, m, "search")
+}
+
+// Read Handler
+func MockRead(cfg *config.Config, zc ZebedeeClient, rend RenderClient, searchC SearchClient, cacheList cache.CacheList) http.HandlerFunc {
+	return dphandlers.ControllerHandler(func(w http.ResponseWriter, req *http.Request, lang, collectionID, accessToken string) {
+		mockRead(w, req, cfg, zc, rend, searchC, accessToken, collectionID, lang, cacheList)
+	})
+}
+
+func mockRead(w http.ResponseWriter, req *http.Request, cfg *config.Config, zc ZebedeeClient, rend RenderClient, searchC SearchClient,
+	accessToken, collectionID, lang string, cacheList cache.CacheList) {
+
+	ctx, cancel := context.WithCancel(req.Context())
+	defer cancel()
+
+	urlQuery := req.URL.Query()
+
+	// MOCK CENSUS TOPIC CACHE - needs to talk to topic-api and get connected to mongodb
+	censusTopicCache := &cache.Topic{
+		ID:              "4445",
+		LocaliseKeyName: "Census",
+		Query:           "4445,1234,5645",
+		List:            cache.NewSubTopicsMap(),
+	}
+	censusTopicCache.List.AppendSubtopicID("4445")
+	censusTopicCache.List.AppendSubtopicID("1234")
+
+	validatedQueryParams, err := data.ReviewQuery(ctx, cfg, urlQuery, censusTopicCache)
+	if err != nil && err != errs.ErrInvalidQueryString && err != errs.ErrFilterNotFound {
+		log.Error(ctx, "unable to review query", err)
+		setStatusCode(w, req, err)
+		return
+	}
+
+	// MOCK SEARCH RESPONSE - needs to talk to search api
+	var searchResp searchCli.Response
+	// get census results only
+	if validatedQueryParams.TopicFilter == "4445" && len(validatedQueryParams.Filter.Query) <= 0 {
+		searchResp, err = getMockSearchResponse("handlers/mock_search_census_response.json")
+		if err != nil {
+			log.Error(ctx, "failed to get mock search response", err)
+			setStatusCode(w, req, err)
+			return
+		}
+		// get articles only
+	} else if len(validatedQueryParams.Filter.Query) > 0 && validatedQueryParams.TopicFilter == "" {
+		searchResp, err = getMockSearchResponse("handlers/mock_search_pub_response.json")
+		if err != nil {
+			log.Error(ctx, "failed to get mock search response", err)
+			setStatusCode(w, req, err)
+			return
+		}
+		// get all
+	} else {
+		searchResp, err = getMockSearchResponse("handlers/mock_search_all_response.json")
+		if err != nil {
+			log.Error(ctx, "failed to get mock search response", err)
+			setStatusCode(w, req, err)
+			return
+		}
+	}
+
+	departmentResp := searchCli.Department{}
+	homepageResponse := zebedeeCli.HomepageContent{}
+
+	if err == errs.ErrInvalidQueryString || err == errs.ErrFilterNotFound {
+		// avoid making any API calls
+		basePage := rend.NewBasePageModel()
+		m := mapper.CreateSearchPage(cfg, req, basePage, validatedQueryParams, []data.Category{}, []data.Topic{}, searchResp, departmentResp, lang, homepageResponse, err.Error())
+		rend.BuildPage(w, m, "search")
+		return
+	}
+
+	err = validateCurrentPage(ctx, cfg, validatedQueryParams, searchResp.Count)
+	if err != nil {
+		log.Error(ctx, "unable to validate current page", err)
+		setStatusCode(w, req, err)
+		return
+	}
+
+	// MOCK CATEGORIES - needs to talk to search api to get its count
+	categories := []data.Category{
+		{
+			LocaliseKeyName: "Publication",
+			ContentTypes: []data.ContentType{
+				{
+					LocaliseKeyName: "Article",
+					Group:           "article",
+					Types:           []string{"article", "article_download"},
+					ShowInWebUI:     true,
+					Count:           3,
+				},
+			},
+			Count: 3,
+		},
+		{
+			LocaliseKeyName: "Data",
+			ContentTypes: []data.ContentType{
+				{
+					LocaliseKeyName: "TimeSeries",
+					Group:           "time_series",
+					Types:           []string{"timeseries"},
+					ShowInWebUI:     true,
+					Count:           2,
+				},
+			},
+			Count: 2,
+		},
+		{
+			LocaliseKeyName: "Other",
+			ContentTypes:    []data.ContentType{},
+			Count:           0,
+		},
+	}
+
+	topicCategories := []data.Topic{
+		{
+			LocaliseKeyName: "Census",
+			Count:           2,
+			Query:           "4445",
+			ShowInWebUI:     true,
+		},
+	}
+
+	basePage := rend.NewBasePageModel()
+	m := mapper.CreateSearchPage(cfg, req, basePage, validatedQueryParams, categories, topicCategories, searchResp, departmentResp, lang, homepageResponse, "")
+	rend.BuildPage(w, m, "search")
+}
+
+func getMockSearchResponse(path string) (searchCli.Response, error) {
+	var respC searchCli.Response
+
+	sampleResponse, err := ioutil.ReadFile(path)
+	if err != nil {
+		return searchCli.Response{}, err
+	}
+
+	err = json.Unmarshal(sampleResponse, &respC)
+	if err != nil {
+		return searchCli.Response{}, err
+	}
+
+	return respC, nil
 }
 
 // validateCurrentPage checks if the current page exceeds the total pages which is a bad request
