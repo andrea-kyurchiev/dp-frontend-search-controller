@@ -156,7 +156,7 @@ func mockRead(w http.ResponseWriter, req *http.Request, cfg *config.Config, zc Z
 	censusTopicCache.List.AppendSubtopicID("1234")
 
 	validatedQueryParams, err := data.ReviewQuery(ctx, cfg, urlQuery, censusTopicCache)
-	if err != nil && err != errs.ErrInvalidQueryString && err != errs.ErrFilterNotFound {
+	if err != nil && !errs.ErrMapForRenderBeforeAPICalls[err] {
 		log.Error(ctx, "unable to review query", err)
 		setStatusCode(w, req, err)
 		return
@@ -193,7 +193,7 @@ func mockRead(w http.ResponseWriter, req *http.Request, cfg *config.Config, zc Z
 	departmentResp := searchCli.Department{}
 	homepageResponse := zebedeeCli.HomepageContent{}
 
-	if err == errs.ErrInvalidQueryString || err == errs.ErrFilterNotFound {
+	if errs.ErrMapForRenderBeforeAPICalls[err] {
 		// avoid making any API calls
 		basePage := rend.NewBasePageModel()
 		m := mapper.CreateSearchPage(cfg, req, basePage, validatedQueryParams, []data.Category{}, []data.Topic{}, searchResp, departmentResp, lang, homepageResponse, err.Error())
