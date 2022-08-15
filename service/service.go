@@ -5,11 +5,9 @@ import (
 	"errors"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
-	render "github.com/ONSdigital/dp-renderer"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/health"
 	search "github.com/ONSdigital/dp-api-clients-go/v2/site-search"
-	"github.com/ONSdigital/dp-frontend-search-controller/assets"
 	"github.com/ONSdigital/dp-frontend-search-controller/cache"
 	cachePrivate "github.com/ONSdigital/dp-frontend-search-controller/cache/private"
 	cachePublic "github.com/ONSdigital/dp-frontend-search-controller/cache/public"
@@ -56,10 +54,10 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, serviceList *E
 
 	// Initialise clients
 	clients := routes.Clients{
-		Renderer: render.NewWithDefaultClient(assets.Asset, assets.AssetNames, cfg.PatternLibraryAssetsPath, cfg.SiteDomain),
-		Search:   search.NewWithHealthClient(svc.routerHealthClient),
-		Topic:    topic.NewWithHealthClient(svc.routerHealthClient),
-		Zebedee:  zebedee.NewWithHealthClient(svc.routerHealthClient),
+		//Renderer: render.NewWithDefaultClient(assets.Asset, assets.AssetNames, cfg.PatternLibraryAssetsPath, cfg.SiteDomain),
+		Search:  search.NewWithHealthClient(svc.routerHealthClient),
+		Topic:   topic.NewWithHealthClient(svc.routerHealthClient),
+		Zebedee: zebedee.NewWithHealthClient(svc.routerHealthClient),
 	}
 
 	// Get healthcheck with checkers
